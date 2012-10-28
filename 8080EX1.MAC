@@ -1,4 +1,4 @@
-	title	'Z80 instruction set exerciser'
+;	title	'Z80 instruction set exerciser'
 
 ; zexlax.z80 - Z80 instruction set exerciser
 ; Copyright (C) 1994  Frank D. Cringle
@@ -42,15 +42,18 @@
 ;
 ;******************************************************************************
 
-	.8080
+	cpu 8080
 	aseg
 	org	100h
 
 begin:	jmp	start
 
 ; machine state before test (needs to be at predictably constant address)
-msbt:	ds	14
-spbt:	ds	2
+msbt:	db	14 dup(0)
+spbt:	db	2 dup (0)
+
+msbt_low equ msbt & 0ffh
+msbt_high equ msbt >> 8
 
 ; For the purposes of this test program, the machine state consists of:
 ;	a 2 byte memory operand, followed by
@@ -151,26 +154,38 @@ tests:
 	dw	stabd
 	dw	0
 
-tstr	macro	insn,memop,hliy,hlix,hl,de,bc,flags,acc,sp
-	local	lab
-lab:	db	insn
-	ds	lab+4-$,0
+tstr_main	macro	lab,memop,hliy,hlix,hl,de,bc,flags,acc,sp
+	db	lab+4-$ dup(0)
 	dw	memop,hliy,hlix,hl,de,bc
 	db	flags
 	db	acc
 	dw	sp
-	if	$-lab ne 20
+	if	$-lab <> 20
 	error	'missing parameter'
 	endif
 	endm
 
+tstr	macro	insn,memop,hliy,hlix,hl,de,bc,flags,acc,sp
+lab:	db	insn
+	tstr_main lab,memop,hliy,hlix,hl,de,bc,flags,acc,sp
+	endm
+
+tstr2	macro	insn1,insn2,memop,hliy,hlix,hl,de,bc,flags,acc,sp
+lab:	db	insn1,insn2
+	tstr_main lab,memop,hliy,hlix,hl,de,bc,flags,acc,sp
+	endm
+
+tstr3	macro	insn1,insn2,insn3,memop,hliy,hlix,hl,de,bc,flags,acc,sp
+lab:	db	insn1,insn2,insn3
+	tstr_main lab,memop,hliy,hlix,hl,de,bc,flags,acc,sp
+	endm
+
 tmsg	macro	m
-	local	lab
 lab:	db	m
-	if	$ ge lab+30
+	if	$ >= lab+30
 	error	'message too long'
 	else
-	ds	lab+30-$,'.'
+	db	lab+30-$ dup('.')
 	endif
 	db	'$'
 	endm
@@ -181,15 +196,15 @@ add16:	db	0ffh		; flag mask
 	tstr	030h,0,0,0,0f821h,0,0,0,0,0		; (512 cycles)
 	tstr	0,0,0,0,-1,-1,-1,0d7h,0,-1		; (38 cycles)
 	db	014h, 047h, 04bh, 0a6h			; expected crc
-	tmsg	'dad <b,d,h,sp>'
+	tmsg	"dad <b,d,h,sp>"
 
 ; aluop a,nn (28,672 cycles)
 alu8i:	db	0ffh		; flag mask
 	tstr	0c6h,09140h,07e3ch,07a67h,0df6dh,05b61h,00b29h,010h,066h,085b2h
 	tstr	038h,0,0,0,0,0,0,0,-1,0			; (2048 cycles)
-	tstr	<0,-1>,0,0,0,0,0,0,0d7h,0,0		; (14 cycles)
+	tstr2	0,-1,0,0,0,0,0,0,0d7h,0,0		; (14 cycles)
 	db	09eh, 092h, 02fh, 09eh			; expected crc
-	tmsg	'aluop nn'
+	tmsg	"aluop nn"
 
 ; aluop a,<b,c,d,e,h,l,(hl),a> (753,664 cycles)
 alu8r:	db	0ffh		; flag mask
@@ -197,7 +212,7 @@ alu8r:	db	0ffh		; flag mask
 	tstr	03fh,0,0,0,0,0,0,0,-1,0			; (16,384 cycles)
 	tstr	0,0ffh,0,0,0,-1,-1,0d7h,0,0		; (46 cycles)
 	db	0cfh, 076h, 02ch, 086h			; expected crc
-	tmsg	'aluop <b,c,d,e,h,l,m,a>'
+	tmsg	"aluop <b,c,d,e,h,l,m,a>"
 
 ; <daa,cpl,scf,ccf>
 daa:	db	0ffh		; flag mask
@@ -205,7 +220,7 @@ daa:	db	0ffh		; flag mask
 	tstr	018h,0,0,0,0,0,0,0d7h,-1,0		; (65,536 cycles)
 	tstr	0,0,0,0,0,0,0,0,0,0			; (1 cycle)
 	db	0bbh,03fh,003h,00ch			; expected crc
-	tmsg	'<daa,cma,stc,cmc>'
+	tmsg	"<daa,cma,stc,cmc>"
 
 ; <inc,dec> a (3072 cycles)
 inca:	db	0ffh		; flag mask
@@ -213,7 +228,7 @@ inca:	db	0ffh		; flag mask
 	tstr	001h,0,0,0,0,0,0,0,-1,0			; (512 cycles)
 	tstr	0,0,0,0,0,0,0,0d7h,0,0			; (6 cycles)
 	db	0adh,0b6h,046h,00eh			; expected crc
-	tmsg	'<inr,dcr> a'
+	tmsg	"<inr,dcr> a"
 
 ; <inc,dec> b (3072 cycles)
 incb:	db	0ffh		; flag mask
@@ -221,7 +236,7 @@ incb:	db	0ffh		; flag mask
 	tstr	001h,0,0,0,0,0,0ff00h,0,0,0		; (512 cycles)
 	tstr	0,0,0,0,0,0,0,0d7h,0,0			; (6 cycles)
 	db	083h,0edh,013h,045h			; expected crc
-	tmsg	'<inr,dcr> b'
+	tmsg	"<inr,dcr> b"
 
 ; <inc,dec> bc (1536 cycles)
 incbc:	db	0ffh		; flag mask
@@ -229,7 +244,7 @@ incbc:	db	0ffh		; flag mask
 	tstr	008h,0,0,0,0,0,0f821h,0,0,0		; (256 cycles)
 	tstr	0,0,0,0,0,0,0,0d7h,0,0			; (6 cycles)
 	db	0f7h,092h,087h,0cdh			; expected crc
-	tmsg	'<inx,dcx> b'
+	tmsg	"<inx,dcx> b"
 
 ; <inc,dec> c (3072 cycles)
 incc:	db	0ffh		; flag mask
@@ -237,7 +252,7 @@ incc:	db	0ffh		; flag mask
 	tstr	001h,0,0,0,0,0,0ffh,0,0,0		; (512 cycles)
 	tstr	0,0,0,0,0,0,0,0d7h,0,0			; (6 cycles)
 	db	0e5h,0f6h,072h,01bh			; expected crc
-	tmsg	'<inr,dcr> c'
+	tmsg	"<inr,dcr> c"
 
 ; <inc,dec> d (3072 cycles)
 incd:	db	0ffh		; flag mask
@@ -245,7 +260,7 @@ incd:	db	0ffh		; flag mask
 	tstr	001h,0,0,0,0,0ff00h,0,0,0,0		; (512 cycles)
 	tstr	0,0,0,0,0,0,0,0d7h,0,0			; (6 cycles)
 	db	015h,0b5h,057h,09ah			; expected crc
-	tmsg	'<inr,dcr> d'
+	tmsg	"<inr,dcr> d"
 
 ; <inc,dec> de (1536 cycles)
 incde:	db	0ffh		; flag mask
@@ -253,7 +268,7 @@ incde:	db	0ffh		; flag mask
 	tstr	008h,0,0,0,0,0f821h,0,0,0,0		; (256 cycles)
 	tstr	0,0,0,0,0,0,0,0d7h,0,0			; (6 cycles)
 	db	07fh,04eh,025h,001h			; expected crc
-	tmsg	'<inx,dcx> d'
+	tmsg	"<inx,dcx> d"
 
 ; <inc,dec> e (3072 cycles)
 ince:	db	0ffh		; flag mask
@@ -261,7 +276,7 @@ ince:	db	0ffh		; flag mask
 	tstr	001h,0,0,0,0,0ffh,0,0,0,0		; (512 cycles)
 	tstr	0,0,0,0,0,0,0,0d7h,0,0			; (6 cycles)
 	db	0cfh,02ah,0b3h,096h			; expected crc
-	tmsg	'<inr,dcr> e'
+	tmsg	"<inr,dcr> e"
 
 ; <inc,dec> h (3072 cycles)
 inch:	db	0ffh		; flag mask
@@ -269,7 +284,7 @@ inch:	db	0ffh		; flag mask
 	tstr	001h,0,0,0,0ff00h,0,0,0,0,0		; (512 cycles)
 	tstr	0,0,0,0,0,0,0,0d7h,0,0			; (6 cycles)
 	db	012h,0b2h,095h,02ch			; expected crc
-	tmsg	'<inr,dcr> h'
+	tmsg	"<inr,dcr> h"
 
 ; <inc,dec> hl (1536 cycles)
 inchl:	db	0ffh		; flag mask
@@ -277,7 +292,7 @@ inchl:	db	0ffh		; flag mask
 	tstr	008h,0,0,0,0f821h,0,0,0,0,0		; (256 cycles)
 	tstr	0,0,0,0,0,0,0,0d7h,0,0			; (6 cycles)
 	db	09fh,02bh,023h,0c0h			; expected crc
-	tmsg	'<inx,dcx> h'
+	tmsg	"<inx,dcx> h"
 
 ; <inc,dec> l (3072 cycles)
 incl:	db	0ffh		; flag mask
@@ -285,7 +300,7 @@ incl:	db	0ffh		; flag mask
 	tstr	001h,0,0,0,0ffh,0,0,0,0,0		; (512 cycles)
 	tstr	0,0,0,0,0,0,0,0d7h,0,0			; (6 cycles)
 	db	0ffh,057h,0d3h,056h			; expected crc
-	tmsg	'<inr,dcr> l'
+	tmsg	"<inr,dcr> l"
 
 ; <inc,dec> (hl) (3072 cycles)
 incm:	db	0ffh		; flag mask
@@ -293,7 +308,7 @@ incm:	db	0ffh		; flag mask
 	tstr	001h,0ffh,0,0,0,0,0,0,0,0		; (512 cycles)
 	tstr	0,0,0,0,0,0,0,0d7h,0,0			; (6 cycles)
 	db	092h,0e9h,063h,0bdh			; expected crc
-	tmsg	'<inr,dcr> m'
+	tmsg	"<inr,dcr> m"
 
 ; <inc,dec> sp (1536 cycles)
 incsp:	db	0ffh		; flag mask
@@ -301,31 +316,31 @@ incsp:	db	0ffh		; flag mask
 	tstr	008h,0,0,0,0,0,0,0,0,0f821h		; (256 cycles)
 	tstr	0,0,0,0,0,0,0,0d7h,0,0			; (6 cycles)
 	db	0d5h,070h,02fh,0abh			; expected crc
-	tmsg	'<inx,dcx> sp'
+	tmsg	"<inx,dcx> sp"
 
 ; ld hl,(nnnn) (16 cycles)
 ld162:	db	0ffh		; flag mask
-	tstr	<02ah,low msbt,high msbt>,09863h,07830h,02077h,0b1feh,0b9fah,0abb8h,004h,006h,06015h
+	tstr3	02ah,msbt_low, msbt_high,09863h,07830h,02077h,0b1feh,0b9fah,0abb8h,004h,006h,06015h
 	tstr	0,0,0,0,0,0,0,0,0,0			; (1 cycle)
 	tstr	0,-1,0,0,0,0,0,0,0,0			; (16 cycles)
 	db	0a9h,0c3h,0d5h,0cbh			; expected crc
-	tmsg	'lhld nnnn'
+	tmsg	"lhld nnnn"
 	
 ; ld (nnnn),hl (16 cycles)
 ld166:	db	0ffh		; flag mask
-	tstr	<022h,low msbt,high msbt>,0d003h,07772h,07f53h,03f72h,064eah,0e180h,010h,02dh,035e9h
+	tstr3	022h,msbt_low, msbt_high,0d003h,07772h,07f53h,03f72h,064eah,0e180h,010h,02dh,035e9h
 	tstr	0,0,0,0,0,0,0,0,0,0			; (1 cycle)
 	tstr	0,0,0,0,-1,0,0,0,0,0			; (16 cycles)
 	db	0e8h,086h,04fh,026h			; expected crc
-	tmsg	'shld nnnn'
+	tmsg	"shld nnnn"
 
 ; ld <bc,de,hl,sp>,nnnn (64 cycles)
 ld16im:	db	0ffh		; flag mask
 	tstr	1,05c1ch,02d46h,08eb9h,06078h,074b1h,0b30eh,046h,0d1h,030cch
 	tstr	030h,0,0,0,0,0,0,0,0,0			; (4 cycles)
-	tstr	<0,0ffh,0ffh>,0,0,0,0,0,0,0,0,0		; (16 cycles)
+	tstr3	0,0ffh,0ffh,0,0,0,0,0,0,0,0,0		; (16 cycles)
 	db	0fch,0f4h,06eh,012h			; expected crc
-	tmsg	'lxi <b,d,h,sp>,nnnn'
+	tmsg	"lxi <b,d,h,sp>,nnnn"
 
 ; ld a,<(bc),(de)> (44 cycles)
 ld8bd:	db	0ffh		; flag mask
@@ -333,7 +348,7 @@ ld8bd:	db	0ffh		; flag mask
 	tstr	010h,0,0,0,0,0,0,0,0,0			; (2 cycles)
 	tstr	0,0ffh,0,0,0,0,0,0d7h,-1,0		; (22 cycles)
 	db	02bh,082h,01dh,05fh			; expected crc
-	tmsg	'ldax <b,d>'
+	tmsg	"ldax <b,d>"
 
 ; ld <b,c,d,e,h,l,(hl),a>,nn (64 cycles)
 ld8im:	db	0ffh		; flag mask
@@ -341,7 +356,7 @@ ld8im:	db	0ffh		; flag mask
 	tstr	038h,0,0,0,0,0,0,0,0,0			; (8 cycles)
 	tstr	0,0,0,0,0,0,0,0,-1,0			; (8 cycles)
 	db	0eah,0a7h,020h,044h			; expected crc
-	tmsg	'mvi <b,c,d,e,h,l,m,a>,nn'
+	tmsg	"mvi <b,c,d,e,h,l,m,a>,nn"
 
 ; ld <b,c,d,e,h,l,a>,<b,c,d,e,h,l,a> (3456 cycles)
 ld8rr:	db	0ffh		; flag mask
@@ -349,15 +364,15 @@ ld8rr:	db	0ffh		; flag mask
 	tstr	03fh,0,0,0,0,0,0,0,0,0			; (64 cycles)
 	tstr	0,0ffh,0,0,0,-1,-1,0d7h,-1,0		; (54 cycles)
 	db	010h,0b5h,08ch,0eeh			; expected crc
-	tmsg	'mov <bcdehla>,<bcdehla>'
+	tmsg	"mov <bcdehla>,<bcdehla>"
 
 ; ld a,(nnnn) / ld (nnnn),a (44 cycles)
 lda:	db	0ffh		; flag mask
-	tstr	<032h,low msbt,high msbt>,0fd68h,0f4ech,044a0h,0b543h,00653h,0cdbah,0d2h,04fh,01fd8h
+	tstr3	032h,msbt_low, msbt_high,0fd68h,0f4ech,044a0h,0b543h,00653h,0cdbah,0d2h,04fh,01fd8h
 	tstr	008h,0,0,0,0,0,0,0,0,0			; (2 cycle)
 	tstr	0,0ffh,0,0,0,0,0,0d7h,-1,0		; (22 cycles)
 	db	0edh,057h,0afh,072h			; expected crc
-	tmsg	'sta nnnn / lda nnnn'
+	tmsg	"sta nnnn / lda nnnn"
 
 ; <rlca,rrca,rla,rra> (6144 cycles)
 rot8080: db	0ffh		; flag mask
@@ -365,7 +380,7 @@ rot8080: db	0ffh		; flag mask
 	tstr	018h,0,0,0,0,0,0,0,-1,0			; (1024 cycles)
 	tstr	0,0,0,0,0,0,0,0d7h,0,0			; (6 cycles)
 	db	0e0h,0d8h,092h,035h			; expected crc
-	tmsg	'<rlc,rrc,ral,rar>'
+	tmsg	"<rlc,rrc,ral,rar>"
 
 ; ld (<bc,de>),a (96 cycles)
 stabd:	db	0ffh		; flag mask
@@ -373,7 +388,7 @@ stabd:	db	0ffh		; flag mask
 	tstr	018h,0,0,0,0,0,0,0,0,0			; (4 cycles)
 	tstr	0,-1,0,0,0,0,0,0,-1,0			; (24 cycles)
 	db	02bh,004h,071h,0e9h			; expected crc
-	tmsg	'stax <b,d>'
+	tmsg	"stax <b,d>"
 
 ; start test pointed to by (hl)
 stt:	push	h
@@ -544,8 +559,8 @@ substr:	pop	h
 	ret
 
 ; get next counter bit in low bit of a
-cntbit:	ds	1
-cntbyt:	ds	2
+cntbit:	db	1 dup(0)
+cntbyt:	db	2 dup(0)
 
 nxtcbit: push	b
 	push	h
@@ -570,8 +585,8 @@ ncb1:	mov	a,b
 	ret
 	
 ; get next shifter bit in low bit of a
-shfbit:	ds	1
-shfbyt:	ds	2
+shfbit:	db	1 dup(0)
+shfbyt:	db	2 dup(0)
 
 nxtsbit: push	b
 	push	h
@@ -733,8 +748,8 @@ shflp1:	inx	h
 	inx	d
 	jmp	shflp
 
-counter: ds	2*20
-shifter: ds	2*20
+counter: db	2*20 dup(0)
+shifter: db	2*20 dup(0)
 
 ; test harness
 test:	push	psw
@@ -787,7 +802,7 @@ test:	push	psw
 	lhld	temp
 ;#idb
 
-iut:	ds	4		; max 4 byte instruction under test
+iut:	db	4	dup(0)	; max 4 byte instruction under test
 
 ;#idb ld (spat),sp replaced with the following code
 ;#idb Must be very careful to preserve registers and flag
@@ -866,15 +881,15 @@ tcrc:	ldax	d
 	ret
 
 ;#idb Added to store HL state
-temp:	ds	2
+temp:	db	2 dup(0)
 ;#idb
 
 ; machine state after test
-msat:	ds	14	; memop,iy,ix,hl,de,bc,af
-spat:	ds	2	; stack pointer after test
+msat:	db	14 dup(0)	; memop,iy,ix,hl,de,bc,af
+spat:	db	2 dup(0)	; stack pointer after test
 flgsat	equ	spat-2	; flags
 
-spsav:	ds	2	; saved stack pointer
+spsav:	db	2 dup(0)	; saved stack pointer
 
 ; display hex string (pointer in hl, byte count in b)
 hexstr:	mov	a,m
@@ -940,11 +955,11 @@ bdos:	push	psw
 	pop	psw
 	ret
 
-msg1:	db	'8080 instruction exerciser (KR580VM80A CPU)',10,13,'$'
-msg2:	db	'Tests complete$'
-okmsg:	db	'  OK',10,13,'$'
-ermsg1:	db	'  ERROR **** crc expected:$'
-ermsg2:	db	' found:$'
+msg1:	db	"8080 instruction exerciser (KR580VM80A CPU)",10,13,'$'
+msg2:	db	"Tests complete$"
+okmsg:	db	"  OK",10,13,'$'
+ermsg1:	db	"  ERROR **** crc expected:$"
+ermsg2:	db	" found:$"
 crlf:	db	10,13,'$'
 
 ; compare crc
@@ -1023,7 +1038,7 @@ icrclp:	mov	m,a
 	pop	psw
 	ret
 
-crcval:	ds	4
+crcval:	db	4 dup(0)
 
 crctab:	db	000h,000h,000h,000h
 	db	077h,007h,030h,096h
