@@ -1,4 +1,4 @@
-all: build test
+all: build test release
 
 build:
 	asl 8080EX1.MAC
@@ -11,13 +11,16 @@ prepare-master:
 test: prepare-master
 	diff 8080EX1.bin 8080EX1.COM.master
 
+release:
+	cp 8080EX1.bin 8080EX1.COM
+
 diff:
 	xxd 8080EX1.bin >8080EX1.bin.hex
 	xxd 8080EX1.COM.master >8080EX1.COM.master.hex
 	diff 8080EX1.bin.hex 8080EX1.COM.master.hex
 
 clean:
-	-rm 8080EX1.p 8080EX1.bin
+	-rm 8080EX1.p 8080EX1.bin 8080EX1.COM
 	-rm 8080EX1.COM.master
 	-rm 8080EX1.bin.hex 8080EX1.COM.master.hex
 
